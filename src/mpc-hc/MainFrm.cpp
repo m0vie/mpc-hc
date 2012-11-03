@@ -2324,7 +2324,6 @@ LRESULT CMainFrame::OnGraphNotify(WPARAM wParam, LPARAM lParam)
                 break;
             case EC_STEP_COMPLETE:
                 if (m_fFrameSteppingActive) {
-                    m_nStepForwardCount++;
                     m_fFrameSteppingActive = false;
                     pBA->put_Volume(m_VolumeBeforeFrameStepping);
                 }
@@ -7221,6 +7220,7 @@ void CMainFrame::OnPlayFramestep(UINT nID)
         m_VolumeBeforeFrameStepping = m_wndToolBar.Volume;
         pBA->put_Volume(-10000);
 
+        m_nStepForwardCount++;
         pFS->Step(1, NULL);
 
         m_OSD.EnableShowMessage();
