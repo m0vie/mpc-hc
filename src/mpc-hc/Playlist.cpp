@@ -23,6 +23,7 @@
 #include "mplayerc.h"
 #include "Playlist.h"
 #include "SettingsDefines.h"
+#include <atlrx.h>
 
 //
 // CPlaylistItem
@@ -149,19 +150,40 @@ void CPlaylistItem::AutoLoadFiles()
     CString fn = m_fns.GetHead();
 
     if (AfxGetAppSettings().fAutoloadAudio && fn.Find(_T("://")) < 0) {
-        int i = fn.ReverseFind('.');
-        if (i > 0) {
+        CString path = fn;
+        path.Replace('/', '\\');
+        int i = path.ReverseFind('\\');
+        path = path.Left(i + 1);
+        int i2 = fn.ReverseFind('.');
+
+        // only try to find external audio tracks, if filename has an extension
+        if (i2 > i) {
             CMediaFormats& mf = AfxGetAppSettings().m_Formats;
 
-            CString ext = fn.Mid(i + 1).MakeLower();
+            CString ext = fn.Mid(i2 + 1).MakeLower();
 
             if (!mf.FindExt(ext, true)) {
-                CString path = fn;
-                path.Replace('/', '\\');
-                path = path.Left(path.ReverseFind('\\') + 1);
+                // extract basename (without extension)
+                // base.avi ==> base
+                // multivolume rar files are treated specially:
+                // base.part01.rar ==> base
+                CString base;
+
+                CAtlRegExp<> re;
+                re.Parse(_T("\\.part\\d+\\.rar$"));
+
+                CAtlREMatchContext<> mc;
+                if (re.Match(fn, &mc)) {
+                    const CAtlREMatchContext<>::RECHAR* szStart = 0;
+                    const CAtlREMatchContext<>::RECHAR* szEnd = 0;
+                    int length = mc.m_Match.szEnd - mc.m_Match.szStart;
+                    base = fn.Left(fn.GetLength() - length + 1);
+                } else {
+                    base = fn.Left(i2);
+                }
 
                 WIN32_FIND_DATA fd = {0};
-                HANDLE hFind = FindFirstFile(fn.Left(i) + _T("*.*"), &fd);
+                HANDLE hFind = FindFirstFile(base + _T("*.*"), &fd);
                 if (hFind != INVALID_HANDLE_VALUE) {
                     do {
                         if (fd.dwFileAttributes & FILE_ATTRIBUTE_DIRECTORY) {
@@ -194,16 +216,6 @@ void CPlaylistItem::AutoLoadFiles()
                 paths.Add(path);
             }
         } while (pos != -1);
-
-        CString dir = fn;
-        dir.Replace('\\', '/');
-        int l  = dir.ReverseFind('/') + 1;
-        int l2 = dir.ReverseFind('.');
-        if (l2 < l) { // no extension, read to the end
-            l2 = fn.GetLength();
-        }
-        CString title = dir.Mid(l, l2 - l);
-        paths.Add(title);
 
         CAtlArray<SubFile> ret;
         GetSubFileNames(fn, paths, ret);

@@ -23,6 +23,7 @@
 #include <io.h>
 #include "TextFile.h"
 #include "GFN.h"
+#include <atl/atlrx.h>
 
 TCHAR* exttypestr[] = {
     _T("srt"), _T("sub"), _T("smi"), _T("psb"),
@@ -73,13 +74,34 @@ void GetSubFileNames(CString fn, CAtlArray<CString>& paths, CAtlArray<SubFile>& 
     }
 
     int l  = fn.ReverseFind('/') + 1;
-    int l2 = fn.ReverseFind('.');
-    if (l2 < l) { // no extension, read to the end
-        l2 = fn.GetLength();
+    CString orgpath = fn.Left(l);
+
+    // extract basename (without extension)
+    // base.avi ==> base
+    // multivolume rar files are treated specially:
+    // base.part01.rar ==> base
+    CString title;
+
+    CAtlRegExp<> re;
+    re.Parse(_T("\\.part\\d+\\.rar$"));
+
+    CAtlREMatchContext<> mc;
+    if (re.Match(fn, &mc)) {
+        const CAtlREMatchContext<>::RECHAR* szStart = 0;
+        const CAtlREMatchContext<>::RECHAR* szEnd = 0;
+        int length = mc.m_Match.szEnd - mc.m_Match.szStart;
+        title = fn.Mid(l, fn.GetLength() - length - l + 1);
+    } else {
+        int l2 = fn.ReverseFind('.');
+        if (l2 < l) { // no extension, read to the end
+            l2 = fn.GetLength();
+        }
+        title = fn.Mid(l, l2 - l);
     }
 
-    CString orgpath = fn.Left(l);
-    CString title = fn.Mid(l, l2 - l);
+    // add basename as search path, too
+    paths.Add(title);
+
     CString filename = title + _T(".nooneexpectsthespanishinquisition");
 
     if (!fWeb) {
